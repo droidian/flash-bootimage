@@ -1,0 +1,22 @@
+Source: flash-bootimage
+Maintainer: Eugenio Paolantonio (g7) <me@medesimo.eu>
+Section: misc
+Priority: optional
+Build-Depends: debhelper (>= 10)
+Standards-Version: 4.5.0.3
+Vcs-Browser: https://github.com/hybris-mobian/flash-bootimage
+Vcs-Git: https://github.com/hybris-mobian-releng/flash-bootimage.git
+
+Package: flash-bootimage
+Architecture: all
+Depends: ${misc:Depends},
+         halium-wrappers,
+         util-linux,
+         coreutils
+Description: Utility to flash Android boot images
+ This package provides an utilty to flash Android boot images on-device,
+ supporting A/B layouts and allowing end-user configuration.
+ .
+ An hook for bootimages packages is also specified so that kernels
+ supplying a correct configuration can get updated via standard APT
+ upgrades.

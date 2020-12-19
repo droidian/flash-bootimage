@@ -1,0 +1,4 @@
+/usr/sbin
+/lib/flash-bootimage
+/etc/flash-bootimage
+/etc/kernel/bootimage_postinst.d

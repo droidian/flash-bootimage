@@ -1,0 +1,226 @@
+#!/bin/bash
+#
+# flash-bootimage - Helper script to flash Android bootimages
+# Copyright (C) 2020 Eugenio "g7" Paolantonio <me@medesimo.eu>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#    * Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#    * Neither the name of the <organization> nor the
+#      names of its contributors may be used to endorse or promote products
+#      derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+set -e
+
+# Default configuration for flash-bootimage should be installed here
+FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION_DIRECTORY="/lib/flash-bootimage"
+FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION="${FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION_DIRECTORY}/flash-bootimage.conf"
+
+# Settings are sourced from files specified in this directory.
+# This way we can support more esoteric settings - for example disabling
+# A/B on a specific installation, flashing to an hypotetical C slot, etc.
+FLASH_BOOTIMAGE_USER_CONFIGURATION_DIRECTORY="/etc/flash-bootimage"
+
+debug() {
+	if [ "${DEBUG}" == "yes" ]; then
+		echo "D: $@"
+	fi
+}
+
+info() {
+	echo "I: $@"
+}
+
+warning() {
+	echo "W: $@" >&2
+}
+
+error() {
+	echo "E: $@" >&2
+	exit 1
+}
+
+help() {
+	cat <<EOF
+${0} - flashes an Android bootimage
+
+Usage: ${0} <version>
+
+User-specified configuration directives are sourced from ${FLASH_BOOTIMAGE_USER_CONFIGURATION_DIRECTORY}.
+
+The bootimage and (dtbo.img, if needed) must be available in /boot/boot.img-<version>.
+
+You shouldn't usually execute this script manually - if everything is
+correctly set-up, bootimages are flashed automatically during kernel
+package upgrades.
+EOF
+
+}
+
+choose_application() {
+	for candidate in ${@}; do
+		app=$(whereis -b ${candidate} | head -n 1 | awk '{ print $2 }')
+		if [ -n "${app}" ]; then
+			echo "${app}"
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+check_paths() {
+	### Search for the existence of every supplied path, and
+	### exits if one is not found
+	for path in ${@}; do
+		[ -e "${path}" ] || error "Unable to find ${path}"
+	done
+}
+
+flash() {
+	### Flashes the selected image to the specified partition
+	### ${1}: image to flash
+	### ${2}: target partition
+	IMAGE="${1}"
+	PARTITION="${2}"
+
+	info "Flashing ${IMAGE} to ${PARTITION}"
+	dd if="${IMAGE}" of="${PARTITION}" bs=1M \
+		|| error "Unable to flash the image!"
+}
+
+GETPROP="$(choose_application android_getprop getprop)"
+BOOTCTL="$(choose_application android_bootctl)"
+
+VERSION="${1}"
+
+if [[ "${VERSION}" == -* ]] || [ -z "${VERSION}" ]; then
+	help
+	exit 1
+fi
+
+FLASH_BOOTIMAGE_KERNEL_CONFIGURATION="${FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION_DIRECTORY}/${VERSION}.conf"
+
+# Load default configuration
+if [ -e "${FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION}" ]; then
+	source "${FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION}"
+else
+	error "${FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION} is missing"
+fi
+
+# Load kernel configuration
+if [ -e "${FLASH_BOOTIMAGE_KERNEL_CONFIGURATION}" ]; then
+	source "${FLASH_BOOTIMAGE_KERNEL_CONFIGURATION}"
+else
+	error "No configuration file for the specified kernel version has been found in ${FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION_DIRECTORY}"
+fi
+
+# Load user configuration
+if [ -e "${FLASH_BOOTIMAGE_USER_CONFIGURATION_DIRECTORY}" ]; then
+	for configuration in "${FLASH_BOOTIMAGE_USER_CONFIGURATION_DIRECTORY}"/*; do
+		info "Loading user-supplied configuration ${configuration}"
+		source ${configuration}
+	done
+fi
+
+BOOTIMAGE="/boot/boot.img-${VERSION}"
+DTBO="/boot/dtbo.img-${VERSION}"
+
+# Safety checks first
+if [ "${FLASH_BOOTIMAGE}" != "yes" ]; then
+	info "Bootimage flashing is disabled, bye"
+	exit 0
+fi
+
+if [ -z "${INFO_VENDOR_MANUFACTURER}" ] && [ -z "${INFO_VENDOR_MODEL}" ] && [ -n "${INFO_CPU}" ]; then
+	# Only CPU specified, check cpuinfo
+	debug "Checking '${INFO_CPU}' against current CPU"
+
+	if ! grep -q "${INFO_CPU}" /proc/cpuinfo; then
+		error "Device details do not match flash-bootimage configuration, aborting"
+	fi
+elif [ -n "${INFO_VENDOR_MANUFACTURER}" ] && [ -n "${INFO_VENDOR_MODEL}" ]; then
+	[ -n "${GETPROP}" ] || error "Unable to find a candidate for getprop"
+
+	device_manufacturer=$(${GETPROP} ro.product.vendor.manufacturer 2> /dev/null)
+	device_model=$(${GETPROP} ro.product.vendor.model 2> /dev/null)
+
+	debug "Current device manufacturer is '${device_manufacturer}' (searching for '${INFO_VENDOR_MANUFACTURER}')"
+	debug "Current device model is '${device_model}' (searching for '${INFO_VENDOR_MODEL}')"
+
+	if [ "${device_manufacturer}" != "${INFO_VENDOR_MANUFACTURER}" ] || [ "${device_model}" != "${INFO_VENDOR_MODEL}" ]; then
+		error "Device details do not match flash-bootimage configuration, aborting"
+	fi
+else
+	error "No device details to check against specified, aborting"
+fi
+
+# Select targets
+BOOTIMAGE_TARGET="${BOOTIMAGE_SLOT_A}"
+DTBO_TARGET="${DTBO_SLOT_A}"
+_SWITCH_SLOT="no"
+_SWITCH_SLOT_TO="0" # B -> A
+
+if [ "${DEVICE_IS_AB}" == "yes" ]; then
+	# A/B device
+	[ -n "${BOOTCTL}" ] || error "Unable to find a candidate for (android) bootctl"
+
+	_SWITCH_SLOT="${DEVICE_SHOULD_SWITCH_SLOT}"
+
+	case $(${BOOTCTL} get-current-slot 2> /dev/null) in
+		0)
+			# A slot
+			BOOTIMAGE_TARGET="${BOOTIMAGE_SLOT_B}"
+			DTBO_TARGET="${DTBO_SLOT_B}"
+			_SWITCH_SLOT_TO="1" # A -> B
+			;;
+		1)
+			# B slot, defaults are enough
+			;;
+		*)
+			error "Invalid current slot, aborting"
+			;;
+	esac
+else
+	DEVICE_HAS_DTBO_PARTITION="no"
+fi
+
+if [ ! -e "${BOOTIMAGE}" ]; then
+	error "${BOOTIMAGE} not found"
+fi
+
+if [ "${DEVICE_HAS_DTBO_PARTITION}" == "yes" ] && [ ! -e "${DTBO}" ]; then
+	error "${DTBO} not found, even if DEVICE_HAS_DTBO_PARTITION is enabled"
+fi
+
+check_paths "${BOOTIMAGE}" "${BOOTIMAGE_TARGET}"
+if [ "${DEVICE_HAS_DTBO_PARTITION}" == "yes" ]; then
+	check_paths "${DTBO}" "${DTBO_TARGET}"
+
+	flash "${DTBO}" "${DTBO_TARGET}"
+fi
+flash "${BOOTIMAGE}" "${BOOTIMAGE_TARGET}"
+
+# Should switch slots?
+if [ "${_SWITCH_SLOT}" == "yes" ]; then
+	info "Switching slots"
+
+	${BOOTCTL} set-active-boot-slot ${_SWITCH_SLOT_TO} 2> /dev/null \
+		|| error "Unable to switch slots."
+fi

@@ -1,0 +1,4 @@
+flash-bootimage /usr/sbin
+config/flash-bootimage.conf /lib/flash-bootimage
+config/00-empty /etc/flash-bootimage
+hooks/* /etc/kernel/bootimage_postinst.d

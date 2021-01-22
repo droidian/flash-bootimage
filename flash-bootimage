@@ -108,6 +108,14 @@ flash() {
 GETPROP="$(choose_application android_getprop getprop)"
 BOOTCTL="$(choose_application android_bootctl)"
 
+# Check if the halium LXC container is running
+if /usr/bin/lxc-info -n android | grep -q RUNNING; then
+	HALIUM_RUNNING="yes"
+else
+	warning "Halium LXC container is not running"
+	HALIUM_RUNNING="no"
+fi
+
 VERSION="${1}"
 
 if [[ "${VERSION}" == -* ]] || [ -z "${VERSION}" ]; then
@@ -148,7 +156,7 @@ if [ "${FLASH_BOOTIMAGE}" != "yes" ]; then
 	exit 0
 fi
 
-if [ -z "${INFO_VENDOR_MANUFACTURER}" ] && [ -z "${INFO_VENDOR_MODEL}" ] && [ -n "${INFO_CPU}" ]; then
+if ([ "${HALIUM_RUNNING}" == "no" ] || ([ -z "${INFO_VENDOR_MANUFACTURER}" ] && [ -z "${INFO_VENDOR_MODEL}" ])) && [ -n "${INFO_CPU}" ]; then
 	# Only CPU specified, check cpuinfo
 	debug "Checking '${INFO_CPU}' against current CPU"
 
@@ -179,11 +187,40 @@ _SWITCH_SLOT_TO="0" # B -> A
 
 if [ "${DEVICE_IS_AB}" == "yes" ]; then
 	# A/B device
-	[ -n "${BOOTCTL}" ] || error "Unable to find a candidate for (android) bootctl"
 
-	_SWITCH_SLOT="${DEVICE_SHOULD_SWITCH_SLOT}"
+	# We can't use bootctl if the halium LXC container is not running,
+	# but we can try to fallback by looking at the current kernel
+	# cmdline.
+	if [ "${HALIUM_RUNNING}" == "yes" ] && [ -n "${BOOTCTL}" ]; then
+		# Halium is running and a bootctl executable has been found
+		_current_slot=$(${BOOTCTL} get-current-slot 2> /dev/null)
 
-	case $(${BOOTCTL} get-current-slot 2> /dev/null) in
+		# We can switch slots since the Android HAL is running, so
+		# set _SWITCH_SLOT to the DEVICE_SHOULD_SWITCH_SLOT value
+		_SWITCH_SLOT="${DEVICE_SHOULD_SWITCH_SLOT}"
+	else
+		# Halium is not running, or a bootctl executable has not been
+		# found
+
+		# Try looking at the kernel cmdline
+		case $(grep -o 'androidboot\.slot_suffix=_[a-b]' /proc/cmdline 2> /dev/null) in
+			"androidboot.slot_suffix=_a")
+				_current_slot=0
+				;;
+			"androidboot.slot_suffix=_b")
+				_current_slot=1
+				;;
+			*)
+				error "Unable to find the current slot using the fallback method"
+				;;
+		esac
+
+		# We can't switch slots, so disable switching
+		warning "Halium LXC container is not running, slot switch is not available"
+		_SWITCH_SLOT="no"
+	fi
+
+	case ${_current_slot} in
 		0)
 			# A slot
 			BOOTIMAGE_TARGET="${BOOTIMAGE_SLOT_B}"

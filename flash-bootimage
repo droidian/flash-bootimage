@@ -149,6 +149,7 @@ fi
 
 BOOTIMAGE="/boot/boot.img-${VERSION}"
 DTBO="/boot/dtbo.img-${VERSION}"
+VBMETA="/boot/vbmeta.img-${VERSION}"
 
 # Safety checks first
 if [ "${FLASH_BOOTIMAGE}" != "yes" ]; then
@@ -182,6 +183,7 @@ fi
 # Select targets
 BOOTIMAGE_TARGET="${BOOTIMAGE_SLOT_A}"
 DTBO_TARGET="${DTBO_SLOT_A}"
+VBMETA_TARGET="${VBMETA_SLOT_A}"
 _SWITCH_SLOT="no"
 _SWITCH_SLOT_TO="0" # B -> A
 
@@ -225,6 +227,7 @@ if [ "${DEVICE_IS_AB}" == "yes" ]; then
 			# A slot
 			BOOTIMAGE_TARGET="${BOOTIMAGE_SLOT_B}"
 			DTBO_TARGET="${DTBO_SLOT_B}"
+			VBMETA_TARGET="${VBMETA_SLOT_B}"
 			_SWITCH_SLOT_TO="1" # A -> B
 			;;
 		1)
@@ -236,6 +239,7 @@ if [ "${DEVICE_IS_AB}" == "yes" ]; then
 	esac
 else
 	DEVICE_HAS_DTBO_PARTITION="no"
+	DEVICE_HAS_VBMETA_PARTITION="no"
 fi
 
 if [ ! -e "${BOOTIMAGE}" ]; then
@@ -246,11 +250,20 @@ if [ "${DEVICE_HAS_DTBO_PARTITION}" == "yes" ] && [ ! -e "${DTBO}" ]; then
 	error "${DTBO} not found, even if DEVICE_HAS_DTBO_PARTITION is enabled"
 fi
 
+if [ "${DEVICE_HAS_VBMETA_PARTITION}" == "yes" ] && [ ! -e "${VBMETA}" ]; then
+	error "${VBMETA} not found, even if DEVICE_HAS_VBMETA_PARTITION is enabled"
+fi
+
 check_paths "${BOOTIMAGE}" "${BOOTIMAGE_TARGET}"
 if [ "${DEVICE_HAS_DTBO_PARTITION}" == "yes" ]; then
 	check_paths "${DTBO}" "${DTBO_TARGET}"
 
 	flash "${DTBO}" "${DTBO_TARGET}"
+fi
+if [ "${DEVICE_HAS_VBMETA_PARTITION}" == "yes" ]; then
+	check_paths "${VBMETA}" "${VBMETA_TARGET}"
+
+	flash "${VBMETA}" "${VBMETA_TARGET}"
 fi
 flash "${BOOTIMAGE}" "${BOOTIMAGE_TARGET}"
 

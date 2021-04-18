@@ -187,7 +187,11 @@ VBMETA_TARGET="${VBMETA_SLOT_A}"
 _SWITCH_SLOT="no"
 _SWITCH_SLOT_TO="0" # B -> A
 
-if [ "${DEVICE_IS_AB}" == "yes" ]; then
+if [ "${DEVICE_IS_LEGACY}" == "yes" ]; then
+	DEVICE_IS_AB="no"
+	DEVICE_HAS_DTBO_PARTITION="no"
+	DEVICE_HAS_VBMETA_PARTITION="no"
+elif [ "${DEVICE_IS_AB}" == "yes" ]; then
 	# A/B device
 
 	# We can't use bootctl if the halium LXC container is not running,
@@ -237,9 +241,6 @@ if [ "${DEVICE_IS_AB}" == "yes" ]; then
 			error "Invalid current slot, aborting"
 			;;
 	esac
-else
-	DEVICE_HAS_DTBO_PARTITION="no"
-	DEVICE_HAS_VBMETA_PARTITION="no"
 fi
 
 if [ ! -e "${BOOTIMAGE}" ]; then

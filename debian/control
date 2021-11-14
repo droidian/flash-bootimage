@@ -10,7 +10,7 @@ Vcs-Git: https://github.com/hybris-mobian-releng/flash-bootimage.git
 Package: flash-bootimage
 Architecture: all
 Depends: ${misc:Depends},
-         halium-wrappers,
+         halium-wrappers (>= 7),
          util-linux,
          coreutils
 Description: Utility to flash Android boot images

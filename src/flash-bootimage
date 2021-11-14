@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # flash-bootimage - Helper script to flash Android bootimages
-# Copyright (C) 2020 Eugenio "g7" Paolantonio <me@medesimo.eu>
+# Copyright (C) 2020-2021 Eugenio "g7" Paolantonio <me@medesimo.eu>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,24 +37,10 @@ FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION="${FLASH_BOOTIMAGE_DEFAULT_CONFIGURATION_D
 # A/B on a specific installation, flashing to an hypotetical C slot, etc.
 FLASH_BOOTIMAGE_USER_CONFIGURATION_DIRECTORY="/etc/flash-bootimage"
 
-debug() {
-	if [ "${DEBUG}" == "yes" ]; then
-		echo "D: $@"
-	fi
-}
+FLASH_BOOTIMAGE_CACHE_DIRECTORY="/var/cache/flash-bootimage"
+FLASH_BOOTIMAGE_SWITCH_SLOT_FILE="${FLASH_BOOTIMAGE_CACHE_DIRECTORY}/flash-bootimage-switch-slot"
 
-info() {
-	echo "I: $@"
-}
-
-warning() {
-	echo "W: $@" >&2
-}
-
-error() {
-	echo "E: $@" >&2
-	exit 1
-}
+source /usr/share/flash-bootimage/common.sh
 
 help() {
 	cat <<EOF
@@ -71,26 +57,6 @@ correctly set-up, bootimages are flashed automatically during kernel
 package upgrades.
 EOF
 
-}
-
-choose_application() {
-	for candidate in ${@}; do
-		app=$(whereis -b ${candidate} | head -n 1 | awk '{ print $2 }')
-		if [ -n "${app}" ]; then
-			echo "${app}"
-			return 0
-		fi
-	done
-
-	return 1
-}
-
-check_paths() {
-	### Search for the existence of every supplied path, and
-	### exits if one is not found
-	for path in ${@}; do
-		[ -e "${path}" ] || error "Unable to find ${path}"
-	done
 }
 
 flash() {
@@ -185,6 +151,7 @@ BOOTIMAGE_TARGET="${BOOTIMAGE_SLOT_A}"
 DTBO_TARGET="${DTBO_SLOT_A}"
 VBMETA_TARGET="${VBMETA_SLOT_A}"
 _SWITCH_SLOT="no"
+_SWITCH_SLOT_SIGNALLING="no"
 _SWITCH_SLOT_TO="0" # B -> A
 
 if [ "${DEVICE_IS_LEGACY}" == "yes" ]; then
@@ -224,6 +191,7 @@ elif [ "${DEVICE_IS_AB}" == "yes" ]; then
 		# We can't switch slots, so disable switching
 		warning "Halium LXC container is not running, slot switch is not available"
 		_SWITCH_SLOT="no"
+		_SWITCH_SLOT_SIGNALLING="yes"
 	fi
 
 	case ${_current_slot} in
@@ -274,4 +242,8 @@ if [ "${_SWITCH_SLOT}" == "yes" ]; then
 
 	${BOOTCTL} set-active-boot-slot ${_SWITCH_SLOT_TO} 2> /dev/null \
 		|| error "Unable to switch slots."
+elif [ "${_SWITCH_SLOT_SIGNALLING}" == "yes" ]; then
+	info "Container disabled, creating ${FLASH_BOOTIMAGE_SWITCH_SLOT_FILE}"
+
+	touch ${FLASH_BOOTIMAGE_SWITCH_SLOT_FILE}
 fi

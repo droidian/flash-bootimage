@@ -1,0 +1,6 @@
+[Unit]
+Description=Target for switching boot image slots
+Requires=sysinit.target
+After=sysinit.target
+AllowIsolate=yes
+Wants=switch-slot-cleanup.service

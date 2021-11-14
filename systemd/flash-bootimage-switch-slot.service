@@ -1,0 +1,12 @@
+[Unit]
+Description=Switch boot slots after upgrades
+ConditionPathExists=/var/cache/flash-bootimage/flash-bootimage-switch-slot
+DefaultDependencies=no
+Requires=sysinit.target dbus.socket lxc@android.service
+After=sysinit.target dbus.socket systemd-journald.socket
+Before=shutdown.target switch-slot.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/share/flash-bootimage/flash-bootimage-switch-slot
+FailureAction=reboot

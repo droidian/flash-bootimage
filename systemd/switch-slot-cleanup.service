@@ -1,0 +1,12 @@
+[Unit]
+Description=Cleans up the switch slot flag
+After=switch-slot.target
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+SuccessAction=reboot
+ConditionPathExists=/var/cache/flash-bootimage/flash-bootimage-switch-slot
+
+[Service]
+Type=oneshot
+ExecStart=/bin/rm -f /var/cache/flash-bootimage/flash-bootimage-switch-slot

@@ -1,4 +1,8 @@
-flash-bootimage /usr/sbin
+src/common.sh /usr/share/flash-bootimage
+src/flash-bootimage /usr/share/flash-bootimage
+src/flash-bootimage-switch-slot /usr/share/flash-bootimage
+src/flash-bootimage-generator /lib/systemd/system-generators
 config/flash-bootimage.conf /lib/flash-bootimage
 config/00-empty /etc/flash-bootimage
 hooks/* /etc/kernel/bootimage_postinst.d
+systemd/* /lib/systemd/system

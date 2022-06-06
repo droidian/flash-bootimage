@@ -114,6 +114,7 @@ if [ -e "${FLASH_BOOTIMAGE_USER_CONFIGURATION_DIRECTORY}" ]; then
 fi
 
 BOOTIMAGE="/boot/boot.img-${VERSION}"
+RECOVERY="/boot/recovery.img-${VERSION}"
 DTBO="/boot/dtbo.img-${VERSION}"
 VBMETA="/boot/vbmeta.img-${VERSION}"
 
@@ -150,6 +151,7 @@ fi
 BOOTIMAGE_TARGET="${BOOTIMAGE_SLOT_A}"
 DTBO_TARGET="${DTBO_SLOT_A}"
 VBMETA_TARGET="${VBMETA_SLOT_A}"
+RECOVERY_TARGET="${RECOVERY_PARTITION}"
 _SWITCH_SLOT="no"
 _SWITCH_SLOT_SIGNALLING="no"
 _SWITCH_SLOT_TO="0" # B -> A
@@ -234,7 +236,23 @@ if [ "${DEVICE_HAS_VBMETA_PARTITION}" == "yes" ]; then
 
 	flash "${VBMETA}" "${VBMETA_TARGET}"
 fi
-flash "${BOOTIMAGE}" "${BOOTIMAGE_TARGET}"
+
+if [ "${DEVICE_SHOULD_FLASH_RECOVERY}" == "yes" ]; then
+	check_paths "${RECOVERY}"
+
+	if [ "${DEVICE_IS_AB}" == "yes" ]; then
+		# A/B device, flash recovery image in place of the boot image
+		flash "${RECOVERY}" "${BOOTIMAGE_TARGET}"
+	else
+		# Legacy or non-A/B device, flash bootimage and recovery image
+		check_paths "${RECOVERY_TARGET}"
+
+		flash "${BOOTIMAGE}" "${BOOTIMAGE_TARGET}"
+		flash "${RECOVERY}" "${RECOVERY_TARGET}"
+	fi
+else
+	flash "${BOOTIMAGE}" "${BOOTIMAGE_TARGET}"
+fi
 
 # Should switch slots?
 if [ "${_SWITCH_SLOT}" == "yes" ]; then

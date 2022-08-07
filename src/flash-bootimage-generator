@@ -30,6 +30,13 @@ FLASH_BOOTIMAGE_SWITCH_SLOT_FILE="/var/cache/flash-bootimage/flash-bootimage-swi
 
 if [ -e "${FLASH_BOOTIMAGE_SWITCH_SLOT_FILE}" ]; then
 	ln -s "/lib/systemd/system/switch-slot.target" "/run/systemd/system/default.target"
+
+	# FIXME: Cap container's TimeoutStopSec to 20s
+	mkdir -p "/run/systemd/system/lxc@android.service.d/"
+	cat > "/run/systemd/system/lxc@android.service.d/10-flash-bootimage.conf" <<EOF
+[Service]
+TimeoutStopSec=20s
+EOF
 fi
 
 exit 0

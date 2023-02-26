@@ -2,8 +2,8 @@
 Description=Switch boot slots after upgrades
 ConditionPathExists=/var/cache/flash-bootimage/flash-bootimage-switch-slot
 DefaultDependencies=no
-Requires=sysinit.target dbus.socket lxc@android.service
-After=sysinit.target dbus.socket systemd-journald.socket
+Requires=sysinit.target dbus.socket lxc@android.service android_boot_completed.service
+After=sysinit.target dbus.socket systemd-journald.socket android_boot_completed.service
 Before=shutdown.target switch-slot.target
 
 [Service]

@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: flash-bootimage
-Source: https://github.com/hybris-mobian/flash-bootimage
+Source: https://github.com/droidian/flash-bootimage
 
 Files: *
 Copyright: 2020 Eugenio "g7" Paolantonio <me@medesimo.eu>

@@ -4,8 +4,8 @@ Section: misc
 Priority: optional
 Build-Depends: debhelper (>= 10)
 Standards-Version: 4.5.0.3
-Vcs-Browser: https://github.com/hybris-mobian/flash-bootimage
-Vcs-Git: https://github.com/hybris-mobian-releng/flash-bootimage.git
+Vcs-Browser: https://github.com/droidian/flash-bootimage
+Vcs-Git: https://github.com/droidian/flash-bootimage.git
 
 Package: flash-bootimage
 Architecture: all

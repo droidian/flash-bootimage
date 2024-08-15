@@ -265,3 +265,9 @@ elif [ "${_SWITCH_SLOT_SIGNALLING}" == "yes" ]; then
 
 	touch ${FLASH_BOOTIMAGE_SWITCH_SLOT_FILE}
 fi
+
+if [ "${DEVICE_IS_AB}" == "no" ] && [ "${DEVICE_SHOULD_REBOOT_TO_RECOVERY}" == "yes" ]; then
+	info "Scheduling a reboot to recovery"
+
+	echo "recovery" > /run/systemd/reboot-param
+fi

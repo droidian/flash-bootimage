@@ -272,7 +272,7 @@ if [ "${_SWITCH_SLOT}" == "yes" ]; then
 	info "Switching slots"
 
 	${BOOTCTL} set-active-boot-slot ${_SWITCH_SLOT_TO} 2> /dev/null \
-		|| error "Unable to switch slots."
+		|| warning "Unable to switch slots."
 elif [ "${_SWITCH_SLOT_SIGNALLING}" == "yes" ]; then
 	info "Container disabled, creating ${FLASH_BOOTIMAGE_SWITCH_SLOT_FILE}"
 
